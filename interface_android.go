@@ -26,6 +26,12 @@ var (
 
 type ifReq [40]byte
 
+// NOTE: go:linkname directives for net.zoneCache and
+// golang.org/x/net/internal/socket.zoneCache were removed for Go 1.25+
+// compatibility (linker flag -checklinkname=0). The zone cache sync calls were
+// also removed. This does not affect crocson — croc and WebRTC use IP addresses
+// directly and do not rely on IPv6 zone resolution from anet.
+
 // Interfaces returns a list of the system's network interfaces.
 func Interfaces() ([]net.Interface, error) {
 	if androidApiLevel() < android11ApiLevel {
@@ -35,10 +41,6 @@ func Interfaces() ([]net.Interface, error) {
 	ift, err := interfaceTable(0)
 	if err != nil {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
-	}
-	if len(ift) != 0 {
-		zoneCache.update(ift, true)
-		zoneCacheX.update(ift, true)
 	}
 	return ift, nil
 }
@@ -92,10 +94,6 @@ func InterfaceByName(name string) (*net.Interface, error) {
 	ift, err := interfaceTable(0)
 	if err != nil {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
-	}
-	if len(ift) != 0 {
-		zoneCache.update(ift, true)
-		zoneCacheX.update(ift, true)
 	}
 	for _, ifi := range ift {
 		if name == ifi.Name {
@@ -160,12 +158,6 @@ type ipv6ZoneCache struct {
 	toIndex      map[string]int // interface name to its index
 	toName       map[int]string // interface index to its name
 }
-
-//go:linkname zoneCache net.zoneCache
-var zoneCache ipv6ZoneCache
-
-//go:linkname zoneCacheX golang.org/x/net/internal/socket.zoneCache
-var zoneCacheX ipv6ZoneCache
 
 // update refreshes the network interface information if the cache was last
 // updated more than 1 minute ago, or if force is set. It reports whether the
